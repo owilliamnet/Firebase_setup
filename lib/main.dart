@@ -35,29 +35,39 @@ class _MyNewHomePageState extends State<MyNewHomePage> {
       appBar: AppBar(
         title: Text('Board'),
       ),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          FlatButton(
-            child: Text('Google Sign-in'),
-            color: Colors.blue[400],
-            onPressed: () => _gSignin(),
-          ),
-          FlatButton(
-            child: Text('Sign-in with E-mail'),
-            color: Colors.orange[400],
-            onPressed: () {},
-          ),
-          FlatButton(
-            child: Text('Create account'),
-            color: Colors.teal[400],
-            onPressed: () {},
-          ),
-          Image.network(_imageURL == null || _imageURL.isEmpty
-              ? "https://via.placeholder.com/150"
-              : _imageURL),
-        ],
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          //crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            FlatButton(
+              child: Text('Google Sign-in'),
+              color: Colors.blue[400],
+              onPressed: () => _gSignin(),
+            ),
+            FlatButton(
+              child: Text('Sign-in with E-mail'),
+              color: Colors.orange[400],
+              onPressed: () => _signInWithEmail(),
+            ),
+            FlatButton(
+              child: Text('Create account'),
+              color: Colors.teal[400],
+              onPressed: () => _createUser(),
+            ),
+            Padding(
+              padding: EdgeInsets.all(8),
+              child: FlatButton(
+                color: Colors.redAccent,
+                child: Text('Logout'),
+                onPressed: () => _logout(),
+              ),
+            ),
+            Image.network(_imageURL == null || _imageURL.isEmpty
+                ? "https://via.placeholder.com/150"
+                : _imageURL),
+          ],
+        ),
       ),
     );
   }
@@ -75,6 +85,34 @@ class _MyNewHomePageState extends State<MyNewHomePage> {
 
     setState(() {
       _imageURL = user.photoUrl;
+    });
+  }
+
+  Future _createUser() async {
+    FirebaseUser user = await _auth
+        .createUserWithEmailAndPassword(
+            email: "wjpm222@gmail.com", password: "test0987")
+        .then((user) {
+      print("User created: ${user.displayName}");
+      print("Email : ${user.email}");
+    });
+  }
+
+  _logout() {
+    setState(() {
+      _googleSignIn.signOut();
+      _imageURL = null;
+    });
+  }
+
+  _signInWithEmail() {
+    _auth
+        .signInWithEmailAndPassword(
+            email: "wjpm222@gmail.com", password: "test0987")
+        .catchError((error) {
+      print("Something went wrong! Error: ${error.toString()}");
+    }).then((newUser) {
+      print("User signed in: ${newUser.email}");
     });
   }
 }
