@@ -1,7 +1,10 @@
-import 'package:firebase_setup/model/board.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_database/firebase_database.dart';
-import 'package:firebase_database/ui/firebase_animated_list.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'dart:async';
+
+final FirebaseAuth _auth = FirebaseAuth.instance;
+final GoogleSignIn _googleSignIn = GoogleSignIn();
 
 void main() => runApp(MyApp());
 
@@ -20,142 +23,96 @@ class MyApp extends StatelessWidget {
 }
 
 class MyNewHomePage extends StatefulWidget {
-  @override
   _MyNewHomePageState createState() => _MyNewHomePageState();
 }
 
 class _MyNewHomePageState extends State<MyNewHomePage> {
-  List<Board> boardMessages = List();
-  Board board;
-  final FirebaseDatabase database = FirebaseDatabase.instance;
-  final GlobalKey<FormState> formKey = GlobalKey<FormState>();
-  DatabaseReference databaseReference;
-
-  @override
-  void initState() {
-    super.initState();
-    board = Board("", "");
-    databaseReference = database.reference().child("community_board");
-    databaseReference.onChildAdded.listen(_onEntryAdded);
-    databaseReference.onChildChanged.listen(_onEntryChanged);
-  }
-
-  /*   void _incrementCounter() {
-            database.reference().child("message").set({
-              "firstname": "William",
-              "lastname": "Martins",
-              "Age": 42,
-            });
-        
-            setState(() {
-              //This is our callback
-              database
-                  .reference()
-                  .child("message")
-                  .once()
-                  .then((DataSnapshot snapshot) {
-                //Map<dynamic, dynamic> dataValues = snapshot.value;
-        
-                print("Values from db: ${snapshot.value.toString().toUpperCase()}");
-              });
-        
-              _counter++;
-            });
-          } 
-        */
+  String _imageURL;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          title: Text("Community Board"),
-        ),
-        body: Column(
+      appBar: AppBar(
+        title: Text('Board'),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          //crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            Flexible(
-              flex: 0,
-              child: Center(
-                child: Form(
-                  key: formKey,
-                  child: Flex(
-                    direction: Axis.vertical,
-                    children: <Widget>[
-                      ListTile(
-                        leading: Icon(Icons.subject),
-                        title: TextFormField(
-                          initialValue: "",
-                          onSaved: (val) => board.subject = val,
-                          validator: (val) => val == "" ? val : null,
-                        ),
-                      ),
-
-                      ListTile(
-                        leading: Icon(Icons.message),
-                        title: TextFormField(
-                          initialValue: "",
-                          onSaved: (val) => board.body = val,
-                          validator: (val) => val == "" ? val : null,
-                        ),
-                      ),
-
-                      //Send Post
-                      FlatButton(
-                        child: Text("Post"),
-                        color: Colors.blueAccent,
-                        onPressed: () {
-                          handleSubmit();
-                        },
-                      )
-                    ],
-                  ),
-                ),
+            FlatButton(
+              child: Text('Google Sign-in'),
+              color: Colors.blue[400],
+              onPressed: () => _gSignin(),
+            ),
+            FlatButton(
+              child: Text('Sign-in with E-mail'),
+              color: Colors.orange[400],
+              onPressed: () => _signInWithEmail(),
+            ),
+            FlatButton(
+              child: Text('Create account'),
+              color: Colors.teal[400],
+              onPressed: () => _createUser(),
+            ),
+            Padding(
+              padding: EdgeInsets.all(8),
+              child: FlatButton(
+                color: Colors.redAccent,
+                child: Text('Logout'),
+                onPressed: () => _logout(),
               ),
             ),
-            Flexible(
-              child: FirebaseAnimatedList(
-                query: databaseReference,
-                itemBuilder: (_, DataSnapshot snapshot,
-                    Animation<double> animation, int index) {
-                  return Card(
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: Colors.grey,
-                      ),
-                      title: Text(boardMessages[index].subject),
-                      subtitle: Text(boardMessages[index].body),
-                    ),
-                  );
-                },
-              ),
-            ),
+            Image.network(_imageURL == null || _imageURL.isEmpty
+                ? "https://via.placeholder.com/150"
+                : _imageURL),
           ],
-        ));
+        ),
+      ),
+    );
   }
 
-  void _onEntryAdded(Event event) {
+  Future<FirebaseUser> _gSignin() async {
+    GoogleSignInAccount googleSignInAccount = await _googleSignIn.signIn();
+    GoogleSignInAuthentication googleSignInAuthentication =
+        await googleSignInAccount.authentication;
+
+    FirebaseUser user = await _auth.signInWithGoogle(
+        idToken: googleSignInAuthentication.idToken,
+        accessToken: googleSignInAuthentication.accessToken);
+
+    print("User is: ${user.displayName}");
+
     setState(() {
-      boardMessages.add(Board.fromSnapshot(event.snapshot));
+      _imageURL = user.photoUrl;
     });
   }
 
-  void handleSubmit() {
-    final FormState form = formKey.currentState;
-    if (form.validate()) {
-      form.save();
-      form.reset();
-      //save form data to the database
-      databaseReference.push().set(board.toJson());
-    }
+  Future _createUser() async {
+    FirebaseUser user = await _auth
+        .createUserWithEmailAndPassword(
+            email: "wjpm222@gmail.com", password: "test0987")
+        .then((user) {
+      print("User created: ${user.displayName}");
+      print("Email : ${user.email}");
+    });
   }
 
-  void _onEntryChanged(Event event) {
-    var oldEntry = boardMessages.singleWhere((entry) {
-      return entry.key == event.snapshot.key;
-    });
-
+  _logout() {
     setState(() {
-      boardMessages[boardMessages.indexOf(oldEntry)] =
-          Board.fromSnapshot(event.snapshot);
+      _googleSignIn.signOut();
+      _imageURL = null;
+    });
+  }
+
+  _signInWithEmail() {
+    _auth
+        .signInWithEmailAndPassword(
+            email: "wjpm222@gmail.com", password: "test0987")
+        .catchError((error) {
+      print("Something went wrong! Error: ${error.toString()}");
+    }).then((newUser) {
+      print("User signed in: ${newUser.email}");
     });
   }
 }
